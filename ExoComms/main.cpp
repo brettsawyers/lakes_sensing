@@ -5,7 +5,11 @@
 #include <vector>
 #include <algorithm>
 
-char sonde_buffer[256];
+#define PARMSNUM 10
+#define PARAMLENGTH 15
+#define SONDEBUFFERLEN 256
+char sonde_buffer[SONDEBUFFERLEN];
+char parameters[PARAMSNUM][PARAMLENGTH];
 void flushRXbuffer(Serial *serial){
     while(serial -> readable()) serial -> getc();    
 }
@@ -36,16 +40,39 @@ void getsondedata(Serial *device, Serial *debugger){
 void setcommadelim(Serial *device){
     device -> printf("delim 2\r\n");       
 }
+
+void parsesondedata(void){
+    int parametercount = 0;
+    int charcount;
+    char currentcheck;
+    for (int i = 0; i < strlen(sonde_buffer); i++){
+        currentcheck = sonde_buffer[i];
+        if(currentcheck == ',') {
+            parameters[parametercount][charcount] = '\0';
+            parametercount++;
+            charcount = 0;
+            continue;    
+        }
+        parameters[parametercount][charcount] = sonde_buffer;
+        charcount++;
+    }
+    parameters[parametercount][charcount] = '\0';
+    
+}
+
 int main() {
     Serial device(USBTX, USBRX); //will need to change this to the appropriate pins once connected ot the exosonde
     Serial debugger(USBTX,USBRX);
     while(1){
+        wait(0.5);
         getsondedata(&device, &debugger);
         debugger.printf("sonde: %s\r\n",sonde_buffer); 
         if(!checkforcomma(&debugger)){
             setcommadelim(&device);
             continue;    
         }
+        parsesondedata();
+        
     }
 }
 
