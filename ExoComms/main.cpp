@@ -1,15 +1,30 @@
 #include "mbed.h"
 #include "mDot.h"
-#include "MTSLog.h"
 #include <string>
 #include <vector>
 #include <algorithm>
+#include "ChannelPlans.h"
 
-#define PARMSNUM 10
+#define PARAMSNUM 10
 #define PARAMLENGTH 15
 #define SONDEBUFFERLEN 256
 char sonde_buffer[SONDEBUFFERLEN];
 char parameters[PARAMSNUM][PARAMLENGTH];
+
+lora::ChannelPlan* plan = NULL;
+mDot* dot = NULL;
+
+static std::string config_network_name = "UQ_St_Lucia";
+static std::string config_network_pass = "L0raStLucia";
+static uint8_t config_frequency_sub_band = 7;
+
+int32_t ret;
+
+Serial device(USBTX, USBRX); //will need to change this to the appropriate pins once connected ot the exosonde
+Serial debugger(USBTX,USBRX);
+
+//update this depending on the desired readings' identifier characters
+const char identifiers[PARAMSNUM] = {'a','b','c','d','e','f','g','h','i','j'};
 void flushRXbuffer(Serial *serial){
     while(serial -> readable()) serial -> getc();    
 }
@@ -53,26 +68,93 @@ void parsesondedata(void){
             charcount = 0;
             continue;    
         }
-        parameters[parametercount][charcount] = sonde_buffer;
+        parameters[parametercount][charcount] = sonde_buffer[i];
         charcount++;
     }
-    parameters[parametercount][charcount] = '\0';
+    parameters[parametercount][charcount] = '\0'; //end the final string
+}
+
+void sendpacket(){
+    std::vector<uint8_t> payload;       
+    for (int i = 0; i < PARAMSNUM; i++){
+        int j = 0;
+        payload.push_back((uint8_t)identifiers[i]);
+        payload.push_back((uint8_t)':');
+        while(parameters[i][j] != '\0'){
+            payload.push_back(parameters[i][j]);
+            j++;              
+        }
+        if(i != PARAMSNUM-1){
+            payload.push_back((uint8_t)',');    
+        }
+    }
+    payload.push_back((uint8_t)'\0');
+    debugger.printf("made packet %s\r\n", payload);
+    // join the network if not joined
+    if (!dot->getNetworkJoinStatus()) {
+        debugger.printf("joining network\r\n");
+        if ((ret = dot->joinNetwork()) != mDot::MDOT_OK) {
+            debugger.printf("\r\n---------\r\nJoin Failed, code: %s\r\n---------\r\n",mDot::getReturnCodeString(ret).c_str());
+        }
+        else{
+            debugger.printf("joined successfully\r\n");
+        }
+    }
+    if (dot->getNetworkJoinStatus()) {
+        // send the data
+        // ACKs are enabled by default, so we're expecting to get one back
+        if ((ret = dot->send(payload)) != mDot::MDOT_OK) {
+            debugger.printf("\r\nFailed send, code: %s\r\n",mDot::getReturnCodeString(ret).c_str());
+        } else {
+            debugger.printf("\r\n data sent\r\n");
+        }
+    }
     
 }
 
+void Loraconfig(void){
+    if ((ret = dot->setFrequencySubBand(config_frequency_sub_band)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set FSB\r\n");
+    }
+    if ((ret = dot->setNetworkName(config_network_name)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set network name\r\n");
+    }
+    if ((ret = dot->setNetworkPassphrase(config_network_pass)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set network passcode\r\n");
+    }
+    // in the 915 (US) frequency band, spreading factors 7 - 10 are available
+    if ((ret = dot->setTxDataRate(mDot::SF_7)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set spread factor\r\n");
+    }
+    //set the number of retries for each sub band before giving up
+    if ((ret = dot->setJoinRetries(100)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set retries\r\n");
+    }
+    // request receive confirmation of packets from the gateway
+    if ((ret = dot->setAck(8)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set ACK\r\n");
+    }
+    // set join mode 
+    if ((ret = dot->setJoinMode(mDot::AUTO_OTA)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set join mode\r\n");
+    }   
+}
+
 int main() {
-    Serial device(USBTX, USBRX); //will need to change this to the appropriate pins once connected ot the exosonde
-    Serial debugger(USBTX,USBRX);
+    // get an mDot handle
+    plan = new lora::ChannelPlan_AU915();
+    dot = mDot::getInstance(plan);
+    assert(dot);
+    Loraconfig();
     while(1){
         wait(0.5);
         getsondedata(&device, &debugger);
-        debugger.printf("sonde: %s\r\n",sonde_buffer); 
         if(!checkforcomma(&debugger)){
             setcommadelim(&device);
             continue;    
         }
         parsesondedata();
-        
+        sendpacket();
     }
 }
 
