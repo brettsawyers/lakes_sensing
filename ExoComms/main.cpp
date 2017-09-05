@@ -74,8 +74,20 @@ void parsesondedata(void){
     parameters[parametercount][charcount] = '\0'; //end the final string
 }
 
+void joinnetwork(void){
+    debugger.printf("joining network\r\n");
+    if ((ret = dot->joinNetwork()) != mDot::MDOT_OK) {
+        debugger.printf("\r\n---------\r\nJoin Failed, code: %s\r\n---------\r\n",mDot::getReturnCodeString(ret).c_str());
+    }
+    else{
+        debugger.printf("joined successfully\r\n");
+    }    
+}
+
 void sendpacket(){
-    std::vector<uint8_t> payload;       
+    std::vector<uint8_t> payload; 
+    std::vector<uint8_t> dummypayload;      
+    std::string dummystring("hellotherem");
     for (int i = 0; i < PARAMSNUM; i++){
         int j = 0;
         payload.push_back((uint8_t)identifiers[i]);
@@ -91,22 +103,17 @@ void sendpacket(){
     payload.push_back((uint8_t)'\0');
     debugger.printf("made packet %s\r\n", payload);
     // join the network if not joined
-    if (!dot->getNetworkJoinStatus()) {
-        debugger.printf("joining network\r\n");
-        if ((ret = dot->joinNetwork()) != mDot::MDOT_OK) {
-            debugger.printf("\r\n---------\r\nJoin Failed, code: %s\r\n---------\r\n",mDot::getReturnCodeString(ret).c_str());
-        }
-        else{
-            debugger.printf("joined successfully\r\n");
-        }
+    while (!dot->getNetworkJoinStatus()) {
+        joinnetwork();
     }
+    std::copy(dummystring.begin(),dummystring.end(),std::back_inserter(dummypayload));
     if (dot->getNetworkJoinStatus()) {
         // send the data
         // ACKs are enabled by default, so we're expecting to get one back
         if ((ret = dot->send(payload)) != mDot::MDOT_OK) {
             debugger.printf("\r\nFailed send, code: %s\r\n",mDot::getReturnCodeString(ret).c_str());
         } else {
-            debugger.printf("\r\n data sent\r\n");
+            debugger.printf("\r\ndata sent\r\n");
         }
     }
     
@@ -122,22 +129,26 @@ void Loraconfig(void){
     if ((ret = dot->setNetworkPassphrase(config_network_pass)) != mDot::MDOT_OK) {
         debugger.printf("Could not set network passcode\r\n");
     }
-    // in the 915 (US) frequency band, spreading factors 7 - 10 are available
-    if ((ret = dot->setTxDataRate(mDot::SF_7)) != mDot::MDOT_OK) {
-        debugger.printf("Could not set spread factor\r\n");
-    }
     //set the number of retries for each sub band before giving up
     if ((ret = dot->setJoinRetries(100)) != mDot::MDOT_OK) {
         debugger.printf("Could not set retries\r\n");
     }
     // request receive confirmation of packets from the gateway
-    if ((ret = dot->setAck(8)) != mDot::MDOT_OK) {
+    if ((ret = dot->setAck(1)) != mDot::MDOT_OK) {
         debugger.printf("Could not set ACK\r\n");
     }
     // set join mode 
     if ((ret = dot->setJoinMode(mDot::AUTO_OTA)) != mDot::MDOT_OK) {
         debugger.printf("Could not set join mode\r\n");
-    }   
+    } 
+    //set data rate to dr2, this gives us 126 bytes of payload space
+    if ((ret = dot->setTxDataRate(mDot::DR2)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set data rate\r\n");
+    } 
+    while(!dot->getNetworkJoinStatus()) {
+        joinnetwork();
+        if(!dot->getNetworkJoinStatus()) wait(5);
+    } 
 }
 
 int main() {
@@ -146,6 +157,8 @@ int main() {
     dot = mDot::getInstance(plan);
     assert(dot);
     Loraconfig();
+    debugger.printf("data rate= %d\r\n", dot -> getTxDataRate());
+    debugger.printf("max packet length = %d\r\n", dot -> getMaxPacketLength());
     while(1){
         wait(0.5);
         getsondedata(&device, &debugger);
