@@ -14,9 +14,13 @@ char parameters[PARAMSNUM][PARAMLENGTH];
 lora::ChannelPlan* plan = NULL;
 mDot* dot = NULL;
 
-static std::string config_network_name = "UQ_St_Lucia";
-static std::string config_network_pass = "L0raStLucia";
-static uint8_t config_frequency_sub_band = 7;
+//static std::string config_network_name = "UQ_St_Lucia";
+//static std::string config_network_pass = "L0raStLucia";
+static uint8_t devAddr[] = { 0x26, 0x04, 0x1E, 0xDB };
+static uint8_t appSKey[] = {0x2B, 0x2A, 0xDC, 0x26, 0xE2, 0x6F, 0x99, 0x75, 0xCF, 0xBC, 0xA6, 0x20, 0x68, 0xFF, 0xCF, 0xCE};
+static uint8_t nwkSKey[] = {0x17, 0x01, 0x0D, 0x95, 0x9C, 0x72, 0x9F, 0x84, 0x5C, 0x03, 0x1A, 0xBB, 0xAC, 0xF1, 0x33, 0x11};       
+static uint8_t config_frequency_sub_band = 2;
+
 
 int32_t ret;
 
@@ -87,7 +91,7 @@ void joinnetwork(void){
 void sendpacket(){
     std::vector<uint8_t> payload; 
     std::vector<uint8_t> dummypayload;      
-    std::string dummystring("hellotherem");
+    std::string dummystring("hello");
     for (int i = 0; i < PARAMSNUM; i++){
         int j = 0;
         payload.push_back((uint8_t)identifiers[i]);
@@ -102,71 +106,90 @@ void sendpacket(){
     }
     payload.push_back((uint8_t)'\0');
     debugger.printf("made packet %s\r\n", payload);
-    // join the network if not joined
-    while (!dot->getNetworkJoinStatus()) {
-        joinnetwork();
-    }
     std::copy(dummystring.begin(),dummystring.end(),std::back_inserter(dummypayload));
-    if (dot->getNetworkJoinStatus()) {
-        // send the data
-        // ACKs are enabled by default, so we're expecting to get one back
-        if ((ret = dot->send(payload)) != mDot::MDOT_OK) {
-            debugger.printf("\r\nFailed send, code: %s\r\n",mDot::getReturnCodeString(ret).c_str());
-        } else {
-            debugger.printf("\r\ndata sent\r\n");
-        }
+    debugger.printf("%d\r\n", dummypayload.size());
+    // send the data
+    if ((ret = dot->send(dummypayload)) != mDot::MDOT_OK) {
+        debugger.printf("\r\nFailed send, code: %s\r\n",mDot::getReturnCodeString(ret).c_str());
+    } else {
+        debugger.printf("\r\ndata sent\r\n");
     }
+
     
 }
 
 void Loraconfig(void){
+    debugger.printf("default frequency band %d\n\r",dot -> getDefaultFrequencyBand());
     if ((ret = dot->setFrequencySubBand(config_frequency_sub_band)) != mDot::MDOT_OK) {
         debugger.printf("Could not set FSB\r\n");
     }
-    if ((ret = dot->setNetworkName(config_network_name)) != mDot::MDOT_OK) {
-        debugger.printf("Could not set network name\r\n");
-    }
-    if ((ret = dot->setNetworkPassphrase(config_network_pass)) != mDot::MDOT_OK) {
-        debugger.printf("Could not set network passcode\r\n");
-    }
-    //set the number of retries for each sub band before giving up
-    if ((ret = dot->setJoinRetries(100)) != mDot::MDOT_OK) {
-        debugger.printf("Could not set retries\r\n");
-    }
-    // request receive confirmation of packets from the gateway
-    if ((ret = dot->setAck(1)) != mDot::MDOT_OK) {
-        debugger.printf("Could not set ACK\r\n");
+    
+    std::vector<uint8_t> temp;
+    for (int i = 0; i < 4; i++) {
+        temp.push_back(devAddr[i]);    
     }
     // set join mode 
-    if ((ret = dot->setJoinMode(mDot::AUTO_OTA)) != mDot::MDOT_OK) {
+    if ((ret = dot->setJoinMode(mDot::MANUAL)) != mDot::MDOT_OK) {
         debugger.printf("Could not set join mode\r\n");
     } 
+    //set network address
+    if ((ret = dot->setNetworkAddress(temp)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set network address\r\n");
+    }
+    //ser public netowkr to true
+    if ((ret = dot->setPublicNetwork(true)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set public network\r\n");
+    }
+    //make a string to be input later
+    temp.clear();
+    for (int i = 0; i < 16; i++) {
+        temp.push_back(nwkSKey[i]);    
+    }
+    //set the netowrk session key
+    if ((ret = dot->setNetworkSessionKey(temp)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set network session key\r\n");
+    }
+    
+    //make a string to be input later
+    temp.clear();
+    for (int i = 0; i < 16; i++) {
+        temp.push_back(appSKey[i]);    
+    }
+    
+    if ((ret = dot->setDataSessionKey(temp)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set data session key (app session key)\n\r");    
+    }  
+        
+    // request receive confirmation of packets from the gateway
+    if ((ret = dot->setAck(0)) != mDot::MDOT_OK) {
+        debugger.printf("Could not set ACK\r\n");
+    }
+
     //set data rate to dr2, this gives us 126 bytes of payload space
-    if ((ret = dot->setTxDataRate(mDot::DR2)) != mDot::MDOT_OK) {
+    if ((ret = dot->setTxDataRate(mDot::DR0)) != mDot::MDOT_OK) {
         debugger.printf("Could not set data rate\r\n");
-    } 
-    while(!dot->getNetworkJoinStatus()) {
-        joinnetwork();
-        if(!dot->getNetworkJoinStatus()) wait(5);
-    } 
+    }
+    
 }
 
 int main() {
     // get an mDot handle
-    plan = new lora::ChannelPlan_AU915();
+    plan = new lora::ChannelPlan_US915();
     dot = mDot::getInstance(plan);
     assert(dot);
     Loraconfig();
     debugger.printf("data rate= %d\r\n", dot -> getTxDataRate());
     debugger.printf("max packet length = %d\r\n", dot -> getMaxPacketLength());
     while(1){
-        wait(0.5);
+        wait(0.05);
+        /*
         getsondedata(&device, &debugger);
         if(!checkforcomma(&debugger)){
             setcommadelim(&device);
             continue;    
         }
         parsesondedata();
+        */
         sendpacket();
     }
 }
