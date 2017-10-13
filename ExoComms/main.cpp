@@ -5,7 +5,7 @@
 #include <algorithm>
 #include "ChannelPlans.h"
 
-#define PARAMSNUM 10
+#define PARAMSNUM 9
 #define PARAMLENGTH 15
 #define SONDEBUFFERLEN 256
 char sonde_buffer[SONDEBUFFERLEN];
@@ -16,19 +16,21 @@ mDot* dot = NULL;
 
 //static std::string config_network_name = "UQ_St_Lucia";
 //static std::string config_network_pass = "L0raStLucia";
-static uint8_t devAddr[] = { 0x26, 0x04, 0x1E, 0xDB };
-static uint8_t appSKey[] = {0x2B, 0x2A, 0xDC, 0x26, 0xE2, 0x6F, 0x99, 0x75, 0xCF, 0xBC, 0xA6, 0x20, 0x68, 0xFF, 0xCF, 0xCE};
-static uint8_t nwkSKey[] = {0x17, 0x01, 0x0D, 0x95, 0x9C, 0x72, 0x9F, 0x84, 0x5C, 0x03, 0x1A, 0xBB, 0xAC, 0xF1, 0x33, 0x11};       
+static uint8_t devAddr[] = { 0x26, 0x01, 0x12, 0xB7 };
+static uint8_t appSKey[] = { 0x10, 0xD8, 0x7A, 0xCC, 0x0E, 0x39, 0x7F, 0x6D, 0x7A, 0xD9, 0x9F, 0xD5, 0x68, 0xFF, 0xF0, 0x11 };
+static uint8_t nwkSKey[] = { 0x42, 0xCC, 0x3A, 0x3A, 0xBC, 0x17, 0x50, 0xC7, 0xDE, 0x0D, 0x16, 0x55, 0x37, 0x3C, 0xE0, 0x8B };
+
 static uint8_t config_frequency_sub_band = 2;
 
+const char firstidentifier = 'h';
 
 int32_t ret;
 
-Serial device(USBTX, USBRX); //will need to change this to the appropriate pins once connected ot the exosonde
-Serial debugger(USBTX,USBRX);
+Serial debugger(USBTX, USBRX); //will need to change this to the appropriate pins once connected ot the exosonde
+Serial device(UART_TX,UART_RX);
 
 //update this depending on the desired readings' identifier characters
-const char identifiers[PARAMSNUM] = {'a','b','c','d','e','f','g','h','i','j'};
+char identifiers[PARAMSNUM];
 void flushRXbuffer(Serial *serial){
     while(serial -> readable()) serial -> getc();    
 }
@@ -47,9 +49,12 @@ void getsondedata(Serial *device, Serial *debugger){
     char datachar;
     device -> printf("data\r\n");
     int charcount = 0;
-    while(datachar = device -> getc(),datachar != '\r' && datachar != '\n'){
+    int commarecvd = 0;
+    while(datachar = device -> getc()){
+        if(datachar == ',') commarecvd++;
         sonde_buffer[charcount] = datachar;
-        charcount++; 
+        charcount++;
+        if(commarecvd >= 9) break;
     }
     //flush the remaining '\n' character from the buffer
     flushRXbuffer(device);
@@ -109,11 +114,16 @@ void sendpacket(){
     std::copy(dummystring.begin(),dummystring.end(),std::back_inserter(dummypayload));
     debugger.printf("%d\r\n", dummypayload.size());
     // send the data
-    if ((ret = dot->send(dummypayload)) != mDot::MDOT_OK) {
-        debugger.printf("\r\nFailed send, code: %s\r\n",mDot::getReturnCodeString(ret).c_str());
-    } else {
-        debugger.printf("\r\ndata sent\r\n");
+    for(int i = 0; i < 12; i++) {
+        wait(0.05);
+        //send eight times to ensure a message goes out on channel 917.4 Mhz
+        if ((ret = dot->send(payload)) != mDot::MDOT_OK) {
+            debugger.printf("\r\nFailed send, code: %s\r\n",mDot::getReturnCodeString(ret).c_str());
+        }else {
+            debugger.printf("\r\ndata sent\r\n");
+        }        
     }
+
 
     
 }
@@ -166,30 +176,39 @@ void Loraconfig(void){
     }
 
     //set data rate to dr2, this gives us 126 bytes of payload space
-    if ((ret = dot->setTxDataRate(mDot::DR0)) != mDot::MDOT_OK) {
+    if ((ret = dot->setTxDataRate(mDot::DR3)) != mDot::MDOT_OK) {
         debugger.printf("Could not set data rate\r\n");
     }
     
 }
 
+/*
+ * initilaise the identifier array used when sending data
+ */
+void setup_identifiers() {
+    for(int i = 0; i < PARAMSNUM; i++) {
+        identifiers[i] = firstidentifier + i;    
+    }
+}
 int main() {
     // get an mDot handle
-    plan = new lora::ChannelPlan_US915();
+    wait(2); //stabilise
+    device.printf("\r\n");//flush any buffer built up during start up
+    plan = new lora::ChannelPlan_AU915();
     dot = mDot::getInstance(plan);
     assert(dot);
+    setup_identifiers();
     Loraconfig();
-    debugger.printf("data rate= %d\r\n", dot -> getTxDataRate());
+    debugger.printf("data rate = %d\r\n", dot -> getTxDataRate());
     debugger.printf("max packet length = %d\r\n", dot -> getMaxPacketLength());
     while(1){
-        wait(0.05);
-        /*
+        wait(2);
         getsondedata(&device, &debugger);
         if(!checkforcomma(&debugger)){
             setcommadelim(&device);
             continue;    
         }
         parsesondedata();
-        */
         sendpacket();
     }
 }
