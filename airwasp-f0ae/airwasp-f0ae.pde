@@ -42,7 +42,7 @@ char  connectorFString[10];
 char  TIME_STAMP[3] = "TS";
 
 const char appEui[] = "70B3D57ED00074FE";
-const char appKey[] = "35AC3CD8615D97F43B82E2B350626ACA";
+const char appKey[] = "77EEAE5432696DAA9C8E52E265CD6DF4";
 
 void receive_from_mdot(void) {
   while(1) {
@@ -73,9 +73,9 @@ void lora_setup() {
   send_config_str("AT+PN=1\n");
   send_config_str("AT+FSB=2\n");
   send_config_str("AT+NJM=0\n");
-  send_config_str("AT+NA=26:01:17:20\n");
-  send_config_str("AT+NSK=44:C5:43:D4:68:F4:15:C4:DE:37:19:BE:1B:97:55:4D\n");
-  send_config_str("AT+DSK=2D:38:C0:8A:C3:F7:DE:C6:01:0C:33:83:FF:51:4D:27\n");
+  send_config_str("AT+NA=26:01:1F:40\n");
+  send_config_str("AT+NSK=8D:16:75:F1:0B:64:B4:32:A8:5B:96:1A:B9:6C:75:27\n");
+  send_config_str("AT+DSK=34:8D:E2:D0:AC:66:AD:04:D4:B0:B5:24:80:E0:2C:8E\n");
   send_config_str("AT+TXDR=DR3\n");
   send_config_str("AT&W\n");
 }
