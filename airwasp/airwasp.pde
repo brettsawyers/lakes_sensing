@@ -12,7 +12,7 @@ char  CONNECTOR_F[3] = "CF";
 
 long  sequenceNumber = 0;   
                                                
-char  nodeID[10] = "403472985";   
+//char  nodeID[10] = "403472985";   
 
 char* sleepTime = "00:00:10:00";           
 
@@ -201,13 +201,14 @@ void loop()
   USB.println("ready to send");
   // Step 12. Message composition
   //Data payload composition
-  sprintf(data,"a:%s,b:%s,f:%s,c:%s,d:%s,e:%s",
+  sprintf(data,"a:%s,b:%s,f:%s,c:%s,d:%s,e:%s,f:%d",
   connectorAString,
   connectorBString,
   connectorCString,
   connectorDString,
   connectorEString,
-  connectorFString);
+  connectorFString,
+  PWR.getBatteryLevel());
 // Step 13. Communication module to ON
   sprintf(messagetogw, "AT+SEND=%s\n", data);
   for(i=0; i < 15; i++) {
