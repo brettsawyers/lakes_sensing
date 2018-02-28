@@ -211,7 +211,7 @@ void loop()
   PWR.getBatteryLevel());
 // Step 13. Communication module to ON
   sprintf(messagetogw, "AT+SEND=%s\n", data);
-  for(i=0; i < 15; i++) {
+  for(i=0; i < 5; i++) {
     lora_setup();
     W232.send(messagetogw);
     receive_from_mdot();

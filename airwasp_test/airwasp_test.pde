@@ -9,12 +9,11 @@ char  CONNECTOR_C[3] = "CC";
 char  CONNECTOR_D[3] = "CD";
 char  CONNECTOR_E[3] = "CE";
 char  CONNECTOR_F[3] = "CF";
-
-long  sequenceNumber = 0;   
+ 
                                                
-char  nodeID[10] = "403472985";   
+//char  nodeID[10] = "403472985";   
 
-char* sleepTime = "00:00:00:03";           
+char* sleepTime = "00:00:00:10";           
 
 char data[100];     
 
@@ -194,41 +193,44 @@ char messagetogw[256];
 int i = 0;
 void loop()
 {
-  
+  /*
   Configure_Sensors();
   Read_Sensors();
   shutdown_sensors();
+  */
   USB.println("ready to send");
-  for(i=0; i < 15; i++) {
-    // Step 12. Message composition
-    //Data payload composition
-    sprintf(data,"a:%s,b:%s,f:%s,c:%s,d:%s,e:%s",
-    connectorAString,
-    connectorBString,
-    connectorCString,
-    connectorDString,
-    connectorEString,
-    connectorFString);
+  // Step 12. Message composition
+  //Data payload composition
+  /*
+   *
+  sprintf(data,"a:%s,b:%s,f:%s,c:%s,d:%s,e:%s",
+  connectorAString,
+  connectorBString,
+  connectorCString,
+  connectorDString,
+  connectorEString,
+  connectorFString);
+  *
+  */
+  sprintf(data, "a:1,b:2,c:3,d:4");
 // Step 13. Communication module to ON
+  sprintf(messagetogw, "AT+SEND=%s\n", data);
+  for(i=0; i < 15; i++) {
     lora_setup();
-    sprintf(messagetogw, "AT+SEND=%s\n", data);
     W232.send(messagetogw);
     receive_from_mdot();
 // Step 14. Message transmission
-    //USB.println(data);
-    USB.printf("send %s\r\n", data);
-// Step 16. Entering Sleep Mode
-    
+    USB.printf("send %d %s\r\n", i, data);
+
     USB.print(F("Battery Level: "));
     USB.print(PWR.getBatteryLevel(),DEC);
     USB.print(F(" %\n"));
-    //USB.OFF();
-    //PWR.deepSleep(sleepTime,RTC_OFFSET,RTC_ALM1_MODE1,ALL_OFF);
-    //PWR.sleep(WTD_4S, ALL_OFF);
-    //USB.ON();
-    delay(3000);
+    delay(5000); // 3 second delay and then the mdot seems to take around 30 seconds to respond even after, 
   }
+  // Step 16. Entering Sleep Mode
+  //USB.OFF();
+  //PWR.deepSleep(sleepTime,RTC_OFFSET,RTC_ALM1_MODE2,ALL_OFF);
+  //USB.ON();
   delay(10000);
-  //Increase the sequence number after wake up
-  sequenceNumber++;
+  USB.print("turned back on\r\n");
 }
