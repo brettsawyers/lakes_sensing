@@ -12,7 +12,7 @@ char  CONNECTOR_F[3] = "CF";
 
 long  sequenceNumber = 0;   
                                                
-//char  nodeID[10] = "403472985";   
+char  nodeID[] = "0011223344556677";   
 
 char* sleepTime = "00:00:10:00";           
 
@@ -70,19 +70,26 @@ void lora_setup() {
 
   //connect to network here and all that jazz, look at saving in NVM
   send_config_str("AT&F\n");
-  send_config_str("AT+PN=1\n");
+  send_config_str("AT+PN=0\n");
+  send_config_str("AT+ACK=8\n");
+  send_config_str("AT+NJM=1\n");
   send_config_str("AT+FSB=2\n");
-  send_config_str("AT+NJM=0\n");
-  send_config_str("AT+NA=26:01:1F:40\n");
-  send_config_str("AT+NSK=8D:16:75:F1:0B:64:B4:32:A8:5B:96:1A:B9:6C:75:27\n");
-  send_config_str("AT+DSK=34:8D:E2:D0:AC:66:AD:04:D4:B0:B5:24:80:E0:2C:8E\n");
+  send_config_str("AT+JR=10\n");
+  send_config_str("AT+NI=0,70:B3:D5:7E:D0:00:74:FE\n");
+  send_config_str("AT+NK=0,77:EE:AE:54:32:69:6D:AA:9C:8E:52:E2:65:CD:6D:F4\n");
+  send_config_str("AT+JOIN\n");
+  send_config_str("AT+NJS\n");
+  send_config_str("AT+PING\n");
+  //send_config_str("AT+NA=26:01:1F:40\n");
+  //send_config_str("AT+NSK=8D:16:75:F1:0B:64:B4:32:A8:5B:96:1A:B9:6C:75:27\n");
+  //send_config_str("AT+DSK=34:8D:E2:D0:AC:66:AD:04:D4:B0:B5:24:80:E0:2C:8E\n");
   send_config_str("AT+TXDR=DR3\n");
   send_config_str("AT&W\n");
 }
 
 void Configure_Sensors(void) {
 // Step 8. Turn on the Sensor Board
-
+  
     //Turn on the sensor board
     SensorGasv20.ON();
     //Turn on the RTC
@@ -194,7 +201,7 @@ char messagetogw[256];
 int i = 0;
 void loop()
 {
-  
+  lora_setup();
   Configure_Sensors();
   Read_Sensors();
   shutdown_sensors();
@@ -212,7 +219,7 @@ void loop()
 // Step 13. Communication module to ON
   sprintf(messagetogw, "AT+SEND=%s\n", data);
   for(i=0; i < 15; i++) {
-    lora_setup();
+    //lora_setup();
     W232.send(messagetogw);
     receive_from_mdot();
 // Step 14. Message transmission
