@@ -14,7 +14,8 @@ long  sequenceNumber = 0;
                                                
 char  nodeID[] = "0011223344556677";   
 
-char* sleepTime = "00:00:10:00";           
+char* sleepTime = "00:00:10:00";         
+char* sleepTimeJoin = "00:00:00:40";  
 
 char data[100];     
 
@@ -60,6 +61,38 @@ void send_config_str(const char *str) {
   delay(50);
 }
 
+void lora_join() {
+    char val;  
+   send_config_str("AT&V\n");    
+   send_config_str("AT+JOIN=1\n");
+   send_config_str("AT+NJS\n");
+   W232.send("AT+NJS\n");
+   while(!W232.available());
+   while(1) {
+      val = W232.read();
+      if ( val == '\n') {
+        break;
+      }
+    }
+   val = W232.read();
+   if(val == '1') {
+    //successful join
+    USB.println("Joined");
+    while(W232.available()) {
+      W232.read();
+    }
+    return;
+   } else {
+    //sleep for a set time then try join again
+    USB.printf("failed join %c\n",val);
+    while(W232.available()) {
+      W232.read();
+    }
+    delay(41000);
+    lora_join();
+   }
+}
+
 void lora_setup() {
   W232.ON(SOCKET0);
   delay(100);
@@ -67,24 +100,33 @@ void lora_setup() {
   W232.stopBitConfig(1);
   W232.baudRateConfig(115200);
   delay(100);
-
-  //connect to network here and all that jazz, look at saving in NVM
-  send_config_str("AT&F\n");
-  send_config_str("AT+PN=0\n");
-  send_config_str("AT+ACK=8\n");
-  send_config_str("AT+NJM=1\n");
-  send_config_str("AT+FSB=2\n");
-  send_config_str("AT+JR=10\n");
-  send_config_str("AT+NI=0,70:B3:D5:7E:D0:00:74:FE\n");
-  send_config_str("AT+NK=0,77:EE:AE:54:32:69:6D:AA:9C:8E:52:E2:65:CD:6D:F4\n");
-  send_config_str("AT+JOIN\n");
-  send_config_str("AT+NJS\n");
-  send_config_str("AT+PING\n");
-  //send_config_str("AT+NA=26:01:1F:40\n");
-  //send_config_str("AT+NSK=8D:16:75:F1:0B:64:B4:32:A8:5B:96:1A:B9:6C:75:27\n");
-  //send_config_str("AT+DSK=34:8D:E2:D0:AC:66:AD:04:D4:B0:B5:24:80:E0:2C:8E\n");
-  send_config_str("AT+TXDR=DR3\n");
-  send_config_str("AT&W\n");
+    USB.println("Setting up LORA");
+    //connect to network here and all that jazz, look at saving in NVM
+    send_config_str("AT&F\n");
+    send_config_str("AT+PN=0\n");
+    send_config_str("AT+TXDR=DR2\n");
+    send_config_str("AT+FSB=2\n");
+    while(1){
+      send_config_str("AT+NJM=0\n");
+      send_config_str("AT+NA=26:01:1F:40\n");
+      send_config_str("AT+NSK=8D:16:75:F1:0B:64:B4:32:A8:5B:96:1A:B9:6C:75:27\n");
+      send_config_str("AT+DSK=34:8D:E2:D0:AC:66:AD:04:D4:B0:B5:24:80:E0:2C:8E\n");
+      send_config_str("AT+SEND=a:1,b:2,c:3,d:4,e:5,f:6,g:7\n");
+      send_config_str("AT&W\n");
+      delay(15000);
+    }
+    
+    /*
+    send_config_str("AT+NJM=1\n");
+    send_config_str("AT+NI=0,70:B3:D5:7E:D0:00:74:FE\n");
+    send_config_str("AT+NK=0,77:EE:AE:54:32:69:6D:AA:9C:8E:52:E2:65:CD:6D:F4\n");
+    send_config_str("AT+JR=30\n");
+    send_config_str("AT+JD=1\n");
+    send_config_str("AT+ACK=8\n");
+    //send_config_str("AT+JOIN=1\n");
+    lora_join();
+    //send_config_str("AT&V\n");
+    */
 }
 
 void Configure_Sensors(void) {
@@ -137,7 +179,6 @@ void setup()
 // Step 6. Initial message transmission
 
     USB.println(data);
-
 // Step 7. Communication module to OFF
 }
 
@@ -218,7 +259,7 @@ void loop()
   PWR.getBatteryLevel());
 // Step 13. Communication module to ON
   sprintf(messagetogw, "AT+SEND=%s\n", data);
-  for(i=0; i < 15; i++) {
+  for(i=0; i < 10; i++) {
     //lora_setup();
     W232.send(messagetogw);
     receive_from_mdot();

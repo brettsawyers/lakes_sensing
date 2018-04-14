@@ -12,9 +12,10 @@ char  CONNECTOR_F[3] = "CF";
 
 long  sequenceNumber = 0;   
                                                
-//char  nodeID[10] = "403472985";   
+char  nodeID[] = "0011223344556677";   
 
-char* sleepTime = "00:00:10:00";           
+char* sleepTime = "00:00:10:00";         
+char* sleepTimeJoin = "00:00:00:40";  
 
 char data[100];     
 
@@ -42,7 +43,7 @@ char  connectorFString[10];
 char  TIME_STAMP[3] = "TS";
 
 const char appEui[] = "70B3D57ED00074FE";
-const char appKey[] = "35AC3CD8615D97F43B82E2B350626ACA";
+const char appKey[] = "77EEAE5432696DAA9C8E52E265CD6DF4";
 
 void receive_from_mdot(void) {
   while(1) {
@@ -60,6 +61,39 @@ void send_config_str(const char *str) {
   delay(50);
 }
 
+void lora_join() {
+    char val;  
+   send_config_str("AT&V\n");    
+   send_config_str("AT+JD?\n");
+   send_config_str("AT+JOIN=1\n");
+   send_config_str("AT+NJS\n");
+   W232.send("AT+NJS\n");
+   while(!W232.available());
+   while(1) {
+      val = W232.read();
+      if ( val == '\n') {
+        break;
+      }
+    }
+   val = W232.read();
+   if(val == '1') {
+    //successful join
+    USB.println("Joined");
+    while(W232.available()) {
+      W232.read();
+    }
+    return;
+   } else {
+    //sleep for a set time then try join again
+    USB.printf("failed join %c\n",val);
+    while(W232.available()) {
+      W232.read();
+    }
+    delay(41000);
+    lora_join();
+   }
+}
+
 void lora_setup() {
   W232.ON(SOCKET0);
   delay(100);
@@ -67,22 +101,41 @@ void lora_setup() {
   W232.stopBitConfig(1);
   W232.baudRateConfig(115200);
   delay(100);
+    USB.println("Setting up LORA");
+    //connect to network here and all that jazz, look at saving in NVM
+    send_config_str("AT&F\n");
+    send_config_str("AT+DI\n");
+    send_config_str("AT+PN=0\n");
+    send_config_str("AT+TXDR=DR3\n");
+    send_config_str("AT+FSB=2\n");
 
-  //connect to network here and all that jazz, look at saving in NVM
-  send_config_str("AT&F\n");
-  send_config_str("AT+PN=1\n");
-  send_config_str("AT+FSB=2\n");
-  send_config_str("AT+NJM=0\n");
-  send_config_str("AT+NA=26:01:17:20\n");
-  send_config_str("AT+NSK=44:C5:43:D4:68:F4:15:C4:DE:37:19:BE:1B:97:55:4D\n");
-  send_config_str("AT+DSK=2D:38:C0:8A:C3:F7:DE:C6:01:0C:33:83:FF:51:4D:27\n");
-  send_config_str("AT+TXDR=DR3\n");
-  send_config_str("AT&W\n");
+    /*
+    send_config_str("AT+NJM=0\n");
+    send_config_str("AT&W\n");
+    send_config_str("AT+NA=26:01:17:20\n");
+    send_config_str("AT+NSK=44:C5:43:D4:68:F4:15:C4:DE:37:19:BE:1B:97:55:4D\n");
+    send_config_str("AT+DSK=2D:38:C0:8A:C3:F7:DE:C6:01:0C:33:83:FF:51:4D:27\n");
+    while(1) {  
+      send_config_str("AT+SEND=TEST\n");
+      delay(5000);
+    }
+    */
+    send_config_str("AT+NJM=1\n");
+    send_config_str("AT+NI=0,70:B3:D5:7E:D0:00:74:FD\n");
+    send_config_str("AT+NK=0,77:EE:AE:54:32:69:6D:AA:9C:8E:52:E2:65:CD:6D:F3\n");
+    send_config_str("AT+JR=30\n");
+    send_config_str("AT+JD=1\n");
+    send_config_str("AT+ACK=8\n");
+    send_config_str("AT+JD=5");
+    send_config_str("AT+RXD=2");
+    //send_config_str("AT+JOIN=1\n");
+    lora_join();
+    //send_config_str("AT&V\n");
 }
 
 void Configure_Sensors(void) {
 // Step 8. Turn on the Sensor Board
-
+  
     //Turn on the sensor board
     SensorGasv20.ON();
     //Turn on the RTC
@@ -130,7 +183,6 @@ void setup()
 // Step 6. Initial message transmission
 
     USB.println(data);
-
 // Step 7. Communication module to OFF
 }
 
@@ -194,7 +246,7 @@ char messagetogw[256];
 int i = 0;
 void loop()
 {
-  
+  lora_setup();
   Configure_Sensors();
   Read_Sensors();
   shutdown_sensors();
@@ -211,8 +263,8 @@ void loop()
   PWR.getBatteryLevel());
 // Step 13. Communication module to ON
   sprintf(messagetogw, "AT+SEND=%s\n", data);
-  for(i=0; i < 5; i++) {
-    lora_setup();
+  for(i=0; i < 10; i++) {
+    //lora_setup();
     W232.send(messagetogw);
     receive_from_mdot();
 // Step 14. Message transmission
@@ -231,3 +283,5 @@ void loop()
   //Increase the sequence number after wake up
   sequenceNumber++;
 }
+
+
