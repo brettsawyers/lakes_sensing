@@ -36,8 +36,8 @@ http.createServer(function(request,response) {
 			requestfunc({
 				url: "http://localhost:8086/write?db=testdb",
 				method: "POST",
-				json: true,
-				body: influxstr,
+				json: false,
+				body: influxstr.replace(/\"/g,""),
 			}, function (error, res, body){
                 console.log(body);
 			});
