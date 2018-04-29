@@ -5,7 +5,10 @@ var devaddrstr = "\"devaddr\":";
 var appstr = "curl -X POST -d '{\"app\":\"sensortest\"";
 function puts(error, stdout, stderr) {sys.puts(stdout)}
 var command = appstr + "," + datastr + "," + devaddrstr + "\"AB0123\"}'" + " http://localhost:8080";
-exec(command,function(err, stdout, stderr){
+function curlcommand (){
+    exec(command,function(err, stdout, stderr){
     console.log(stdout);
     console.log(command);
-});
+    });
+}
+setInterval(curlcommand, 10000);
