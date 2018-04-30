@@ -4,11 +4,21 @@ var datastr = "\"data\":\"7b2261223a3130302c2262223a3230302c2263223a31322c226422
 var devaddrstr = "\"devaddr\":";
 var appstr = "curl -X POST -d '{\"app\":\"sensortest\"";
 function puts(error, stdout, stderr) {sys.puts(stdout)}
-var command = appstr + "," + datastr + "," + devaddrstr + "\"AB0123\"}'" + " http://localhost:8080";
-function curlcommand (){
+function deviceAB0123(){
+    let command = appstr + "," + datastr + "," + devaddrstr + "\"AB0123\"}'" + " http://localhost:8080";
     exec(command,function(err, stdout, stderr){
     console.log(stdout);
     console.log(command);
     });
 }
-setInterval(curlcommand, 10000);
+
+function deviceCD1042(){
+    let command = appstr + "," + datastr + "," + devaddrstr + "\"CD1042\"}'" + " http://localhost:8080";
+    exec(command,function(err, stdout, stderr){
+    console.log(stdout);
+    console.log(command);
+    });
+}
+
+setInterval(deviceAB0123, 10000);
+setInterval(deviceCD1042, 10000);
