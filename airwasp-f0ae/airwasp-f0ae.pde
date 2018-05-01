@@ -4,7 +4,7 @@
 #include <stdlib.h>
 // Step 2. Variables declaration
 char  CONNECTOR_A[3] = "CA";      
-char  CONNECTOR_B[3] = "CB";    
+char  CONNECTOR_B[3] = "CB";   
 char  CONNECTOR_C[3] = "CC";
 char  CONNECTOR_D[3] = "CD";
 char  CONNECTOR_E[3] = "CE";
@@ -14,9 +14,9 @@ long  sequenceNumber = 0;
                                                
 char  nodeID[] = "0011223344556677";   
 
-char* sleepTime = "00:00:10:00";         
+char* sleepTime = "00:00:20:00";         
 char* sleepTimeJoin = "00:00:00:40";  
-
+bool waiting_for_join = false;
 char data[100];     
 
 float connectorAFloatValue; 
@@ -42,16 +42,19 @@ char  connectorFString[10];
 
 char  TIME_STAMP[3] = "TS";
 
-const char appEui[] = "70B3D57ED00074FE";
-const char appKey[] = "77EEAE5432696DAA9C8E52E265CD6DF4";
-
 void receive_from_mdot(void) {
+  uint64_t counter = 0;
   while(1) {
     if(W232.receive() > 0) {
       USB.println(W232._buffer, W232._length);
       break;
     }
-
+    counter++;
+    if(counter > 10000){
+      //USB.println("stuck here");
+      //W232.flush();
+      counter = 0;
+    }
   }
 }
 
@@ -63,8 +66,10 @@ void send_config_str(const char *str) {
 
 void lora_join() {
     char val;  
-   send_config_str("AT&V\n");    
+   send_config_str("AT&V\n");  
+   waiting_for_join = true;  
    send_config_str("AT+JOIN=1\n");
+   waiting_for_join = false;
    send_config_str("AT+NJS\n");
    W232.send("AT+NJS\n");
    while(!W232.available());
@@ -94,39 +99,40 @@ void lora_join() {
 }
 
 void lora_setup() {
-  W232.ON(SOCKET0);
-  delay(100);
-  W232.parityBit(NONE);
-  W232.stopBitConfig(1);
-  W232.baudRateConfig(115200);
-  delay(100);
-    USB.println("Setting up LORA");
+  USB.println("Setting up LORA");
     //connect to network here and all that jazz, look at saving in NVM
-    send_config_str("AT&F\n");
-    send_config_str("AT+PN=0\n");
-    send_config_str("AT+TXDR=DR2\n");
-    send_config_str("AT+FSB=2\n");
-    while(1){
+    /*
+    //while(1){
+      send_config_str("AT&F\n");
+      send_config_str("AT+PN=1\n");
+      send_config_str("AT+FSB=2\n");
       send_config_str("AT+NJM=0\n");
       send_config_str("AT+NA=26:01:1F:40\n");
       send_config_str("AT+NSK=8D:16:75:F1:0B:64:B4:32:A8:5B:96:1A:B9:6C:75:27\n");
       send_config_str("AT+DSK=34:8D:E2:D0:AC:66:AD:04:D4:B0:B5:24:80:E0:2C:8E\n");
-      send_config_str("AT+SEND=a:1,b:2,c:3,d:4,e:5,f:6,g:7\n");
+      send_config_str("AT+TXDR=DR5\n");
+      send_config_str("AT+TXDR?\n");
+      //send_config_str("AT+SEND={\"a\":28,\"b\":3000,\"c\":2332432,\"d\":23423,\"e\":346456,\"f\":3463543,\"g\":2349}\n");
+      //send_config_str("AT+SEND=HELLO\n");     
       send_config_str("AT&W\n");
-      delay(15000);
-    }
-    
-    /*
+      //delay(10000);
+    //}
+    */
+    send_config_str("AT&F\n");
+    send_config_str("AT+PN=1\n");
+    send_config_str("AT+FSB=2\n");
+    send_config_str("AT+TXDR=DR5\n");
     send_config_str("AT+NJM=1\n");
     send_config_str("AT+NI=0,70:B3:D5:7E:D0:00:74:FE\n");
     send_config_str("AT+NK=0,77:EE:AE:54:32:69:6D:AA:9C:8E:52:E2:65:CD:6D:F4\n");
     send_config_str("AT+JR=30\n");
-    send_config_str("AT+JD=1\n");
+    send_config_str("AT+JD=4\n");
     send_config_str("AT+ACK=8\n");
+    send_config_str("AT&W\n");
     //send_config_str("AT+JOIN=1\n");
     lora_join();
     //send_config_str("AT&V\n");
-    */
+    
 }
 
 void Configure_Sensors(void) {
@@ -180,6 +186,13 @@ void setup()
 
     USB.println(data);
 // Step 7. Communication module to OFF
+  USB.println("Setting up 232");
+  W232.ON(SOCKET0);
+  delay(100);
+  W232.parityBit(NONE);
+  W232.stopBitConfig(1);
+  W232.baudRateConfig(115200);
+  delay(10000);
 }
 
 
@@ -249,7 +262,7 @@ void loop()
   USB.println("ready to send");
   // Step 12. Message composition
   //Data payload composition
-  sprintf(data,"a:%s,b:%s,c:%s,d:%s,e:%s,f:%s,g:%d",
+  sprintf(data,"{\"a\":%s,\"b\":%s,\"c\":%s,\"d\":%s,\"e\":%s,\"f\":%s,\"g\":%d}",
   connectorAString,
   connectorBString,
   connectorCString,
@@ -259,7 +272,7 @@ void loop()
   PWR.getBatteryLevel());
 // Step 13. Communication module to ON
   sprintf(messagetogw, "AT+SEND=%s\n", data);
-  for(i=0; i < 10; i++) {
+  for(i=0; i < 2; i++) {
     //lora_setup();
     W232.send(messagetogw);
     receive_from_mdot();
@@ -276,6 +289,6 @@ void loop()
   PWR.deepSleep(sleepTime,RTC_OFFSET,RTC_ALM1_MODE2,ALL_OFF);
   USB.ON();
   USB.print("turned back on\r\n");
-  //Increase the sequence number after wake up
-  sequenceNumber++;
+  setup();
+  setup();
 }
